@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
-import 'package:shopping_list/data/grocery_items.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+import 'package:shopping_list/data/categories.dart';
+
 import 'package:shopping_list/models/grocery_item.dart';
 import 'package:shopping_list/widgets/screens/new_item_sfw.dart';
 
@@ -14,6 +19,42 @@ class GroceriesHomeScreenSFW extends StatefulWidget {
 }
 
 class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
+  late List<GroceryItem> _groceryItems = [];
+  void _loadGroceryItems() {
+    final getUrl = Uri.https(dotenv.env['FireBaseURI']!, 'shopping_list.json');
+    http.get(getUrl).then((response) {
+      if (response.statusCode == 200) {
+        final Map<String, dynamic>? bodyMap = json.decode(response.body);
+        final List<GroceryItem> groceryItems = [];
+        if (bodyMap != null) {
+          for (final item in bodyMap.entries) {
+            groceryItems.add(
+              GroceryItem(
+                id: item.key,
+                name: item.value['name'],
+                quantity: int.tryParse(item.value['quantity'])!,
+                category: categories.entries
+                    .firstWhere((category) =>
+                        category.value.categoryName == item.value['category'])
+                    .value,
+              ),
+            );
+          }
+        }
+        setState(() {
+          _groceryItems = groceryItems;
+        });
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // load grocery items initially here
+    _loadGroceryItems();
+  }
+
   void _addNewItem() async {
     final groceryItem = await Navigator.push<GroceryItem>(
       context,
@@ -23,8 +64,32 @@ class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
     );
     if (groceryItem != null) {
       setState(() {
-        groceryItems.add(groceryItem);
+        _groceryItems.add(groceryItem);
       });
+    }
+  }
+
+  void _removeItem(GroceryItem item) async {
+    setState(() {
+      _groceryItems.remove(item);
+    });
+
+    final deleteUrl =
+        Uri.https(dotenv.env['FireBaseURI']!, 'shopping_list/${item.id}.json');
+    final response = await http.delete(deleteUrl);
+    if (response.statusCode == 200) {
+      print(response.body);
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Item removed',
+            ),
+            duration: Durations.extralong1,
+          ),
+        );
+      }
     }
   }
 
@@ -43,42 +108,32 @@ class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
           ),
         ],
       ),
-      body: groceryItems.isNotEmpty
+      body: _groceryItems.isNotEmpty
           ? ListView.builder(
-              itemCount: groceryItems.length,
+              itemCount: _groceryItems.length,
               itemBuilder: (ctx, index) {
                 return Dismissible(
-                  key: ValueKey(groceryItems[index].id),
+                  key: ValueKey(_groceryItems[index].id),
                   direction: DismissDirection.endToStart,
                   background: Container(
                     color: Theme.of(ctx).colorScheme.onErrorContainer,
                   ),
                   onDismissed: (direction) {
                     if (direction == DismissDirection.endToStart) {
-                      setState(() {
-                        groceryItems.removeAt(index);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Item removed',
-                            ),
-                            duration: Durations.extralong1,
-                          ),
-                        );
-                      });
+                      _removeItem(_groceryItems[index]);
                     }
                   },
                   child: ListTile(
-                    title: Text(groceryItems[index].name),
+                    title: Text(_groceryItems[index].name),
                     leading: IconButton(
                       icon: Icon(
                         Icons.square_rounded,
-                        color: groceryItems[index].category.categoryColor,
+                        color: _groceryItems[index].category.categoryColor,
                       ),
                       onPressed: () {},
                     ),
                     trailing: Text(
-                      groceryItems[index].quantity.toString(),
+                      _groceryItems[index].quantity.toString(),
                       style: Theme.of(ctx).textTheme.bodyLarge,
                     ),
                     contentPadding:

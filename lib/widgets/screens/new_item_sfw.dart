@@ -1,4 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import 'package:shopping_list/data/categories.dart';
 import 'package:shopping_list/models/category.dart';
 import 'package:shopping_list/models/grocery_item.dart';
@@ -15,28 +21,50 @@ class NewItemScreenSFW extends StatefulWidget {
 class _NewItemScreenSFWState extends State<NewItemScreenSFW> {
   final _formKey = GlobalKey<FormState>();
 
+  bool _isLoading = false;
+
   var itemName = '';
   var quantity = '';
   Category category = categories.entries.first.value;
-  void _saveItem() {
+  void _saveItem() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Item added successfully',
+      setState(() {
+        _isLoading = true;
+      });
+
+      final response = await http.post(
+        Uri.https(
+          dotenv.env['FireBaseURI']!,
+          'shopping_list.json',
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(
+          {
+            'name': itemName,
+            'quantity': quantity,
+            'category': category.categoryName,
+          },
+        ),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Item added successfully',
+            ),
+            duration: Durations.extralong1,
           ),
-          duration: Durations.extralong1,
-        ),
-      );
-      Navigator.of(context).pop(
-        GroceryItem(
-          id: DateTime.now().toString(),
-          name: itemName,
-          quantity: int.tryParse(quantity)!,
-          category: category,
-        ),
-      );
+        );
+        Navigator.of(context).pop(
+          GroceryItem(
+            id: json.decode(response.body)['name'],
+            name: itemName,
+            quantity: int.tryParse(quantity)!,
+            category: category,
+          ),
+        );
+      }
     }
   }
 
@@ -137,12 +165,14 @@ class _NewItemScreenSFWState extends State<NewItemScreenSFW> {
                   TextButton(
                     style: const ButtonStyle(
                       padding: MaterialStatePropertyAll(
-                        EdgeInsets.fromLTRB(24, 8, 24, 8),
+                        EdgeInsets.fromLTRB(32, 16, 32, 16),
                       ),
                     ),
-                    onPressed: () {
-                      _formKey.currentState!.reset();
-                    },
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            _formKey.currentState!.reset();
+                          },
                     child: const Text(
                       'Reset',
                     ),
@@ -153,13 +183,15 @@ class _NewItemScreenSFWState extends State<NewItemScreenSFW> {
                   ElevatedButton(
                     style: const ButtonStyle(
                       padding: MaterialStatePropertyAll(
-                        EdgeInsets.fromLTRB(24, 8, 24, 8),
+                        EdgeInsets.fromLTRB(32, 16, 32, 16),
                       ),
                     ),
                     onPressed: _saveItem,
-                    child: const Text(
-                      'Submit',
-                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator.adaptive()
+                        : const Text(
+                            'Submit',
+                          ),
                   ),
                 ],
               ),
