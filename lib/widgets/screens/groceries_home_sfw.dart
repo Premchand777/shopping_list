@@ -8,6 +8,7 @@ import 'package:shopping_list/data/categories.dart';
 
 import 'package:shopping_list/models/grocery_item.dart';
 import 'package:shopping_list/widgets/screens/new_item_sfw.dart';
+import 'package:shopping_list/widgets/widgets/error_dailog_slw.dart';
 
 class GroceriesHomeScreenSFW extends StatefulWidget {
   const GroceriesHomeScreenSFW({
@@ -19,11 +20,15 @@ class GroceriesHomeScreenSFW extends StatefulWidget {
 }
 
 class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
+  bool _isError = false;
+  String _errorMessage = '';
   bool _isLoading = true;
   late List<GroceryItem> _groceryItems = [];
-  void _loadGroceryItems() {
-    final getUrl = Uri.https(dotenv.env['FireBaseURI']!, 'shopping_list.json');
-    http.get(getUrl).then((response) {
+  void _loadGroceryItems() async {
+    try {
+      final getUrl =
+          Uri.https(dotenv.env['FireBaseURI']!, 'shopping_list.json');
+      final response = await http.get(getUrl);
       if (response.statusCode == 200) {
         final Map<String, dynamic>? bodyMap = json.decode(response.body);
         final List<GroceryItem> groceryItems = [];
@@ -47,7 +52,17 @@ class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
           _isLoading = false;
         });
       }
-    });
+      if (response.statusCode >= 400) {
+        throw Exception(
+            'Failed to load grocery items! please try again later.');
+      }
+    } catch (e) {
+      setState(() {
+        _isError = true;
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -76,22 +91,41 @@ class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
       _groceryItems.remove(item);
     });
 
-    final deleteUrl =
-        Uri.https(dotenv.env['FireBaseURI']!, 'shopping_list/${item.id}.json');
-    final response = await http.delete(deleteUrl);
-    if (response.statusCode == 200) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Item removed',
+    try {
+      final deleteUrl = Uri.https(
+          dotenv.env['FireBaseURI']!, 'shopping_list/${item.id}.json');
+      final response = await http.delete(deleteUrl);
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).clearSnackBars();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Item removed',
+              ),
+              duration: Durations.extralong1,
             ),
-            duration: Durations.extralong1,
-          ),
-        );
+          );
+        }
       }
+      if (response.statusCode >= 400) {
+        throw Exception('Something went wrong! Please try again later.');
+      }
+    } catch (e) {
+      setState(() {
+        _isError = true;
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
     }
+  }
+
+  void clearErrorState() {
+    setState(() {
+      _isError = false;
+      _errorMessage = '';
+      _isLoading = false;
+    });
   }
 
   @override
@@ -109,55 +143,59 @@ class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
           ),
         ],
       ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator.adaptive(
-                backgroundColor: Theme.of(context).indicatorColor.withAlpha(16),
-                valueColor: AlwaysStoppedAnimation(
-                  Theme.of(context).indicatorColor.withAlpha(112),
-                ),
-              ),
-            )
-          : _groceryItems.isNotEmpty
-              ? ListView.builder(
-                  itemCount: _groceryItems.length,
-                  itemBuilder: (ctx, index) {
-                    return Dismissible(
-                      key: ValueKey(_groceryItems[index].id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: Theme.of(ctx).colorScheme.onErrorContainer,
-                      ),
-                      onDismissed: (direction) {
-                        if (direction == DismissDirection.endToStart) {
-                          _removeItem(_groceryItems[index]);
-                        }
-                      },
-                      child: ListTile(
-                        title: Text(_groceryItems[index].name),
-                        leading: IconButton(
-                          icon: Icon(
-                            Icons.square_rounded,
-                            color: _groceryItems[index].category.categoryColor,
-                          ),
-                          onPressed: () {},
-                        ),
-                        trailing: Text(
-                          _groceryItems[index].quantity.toString(),
-                          style: Theme.of(ctx).textTheme.bodyLarge,
-                        ),
-                        contentPadding:
-                            const EdgeInsets.only(left: 0.0, right: 12.0),
-                      ),
-                    );
-                  },
-                )
-              : Center(
-                  child: Text(
-                    'Anything to buy ? add one.',
-                    style: Theme.of(context).textTheme.bodyLarge,
+      body: _isError
+          ? ErrorDailogSLW(message: _errorMessage, onPressed: clearErrorState)
+          : _isLoading
+              ? Center(
+                  child: CircularProgressIndicator.adaptive(
+                    backgroundColor:
+                        Theme.of(context).indicatorColor.withAlpha(16),
+                    valueColor: AlwaysStoppedAnimation(
+                      Theme.of(context).indicatorColor.withAlpha(112),
+                    ),
                   ),
-                ),
+                )
+              : _groceryItems.isNotEmpty
+                  ? ListView.builder(
+                      itemCount: _groceryItems.length,
+                      itemBuilder: (ctx, index) {
+                        return Dismissible(
+                          key: ValueKey(_groceryItems[index].id),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Theme.of(ctx).colorScheme.onErrorContainer,
+                          ),
+                          onDismissed: (direction) {
+                            if (direction == DismissDirection.endToStart) {
+                              _removeItem(_groceryItems[index]);
+                            }
+                          },
+                          child: ListTile(
+                            title: Text(_groceryItems[index].name),
+                            leading: IconButton(
+                              icon: Icon(
+                                Icons.square_rounded,
+                                color:
+                                    _groceryItems[index].category.categoryColor,
+                              ),
+                              onPressed: () {},
+                            ),
+                            trailing: Text(
+                              _groceryItems[index].quantity.toString(),
+                              style: Theme.of(ctx).textTheme.bodyLarge,
+                            ),
+                            contentPadding:
+                                const EdgeInsets.only(left: 0.0, right: 12.0),
+                          ),
+                        );
+                      },
+                    )
+                  : Center(
+                      child: Text(
+                        'Anything to buy ? add one.',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ),
     );
   }
 }
