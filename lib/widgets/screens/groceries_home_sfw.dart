@@ -19,6 +19,7 @@ class GroceriesHomeScreenSFW extends StatefulWidget {
 }
 
 class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
+  bool _isLoading = true;
   late List<GroceryItem> _groceryItems = [];
   void _loadGroceryItems() {
     final getUrl = Uri.https(dotenv.env['FireBaseURI']!, 'shopping_list.json');
@@ -43,6 +44,7 @@ class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
         }
         setState(() {
           _groceryItems = groceryItems;
+          _isLoading = false;
         });
       }
     });
@@ -78,7 +80,6 @@ class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
         Uri.https(dotenv.env['FireBaseURI']!, 'shopping_list/${item.id}.json');
     final response = await http.delete(deleteUrl);
     if (response.statusCode == 200) {
-      print(response.body);
       if (mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -108,46 +109,55 @@ class _GroceriesHomeSFWState extends State<GroceriesHomeScreenSFW> {
           ),
         ],
       ),
-      body: _groceryItems.isNotEmpty
-          ? ListView.builder(
-              itemCount: _groceryItems.length,
-              itemBuilder: (ctx, index) {
-                return Dismissible(
-                  key: ValueKey(_groceryItems[index].id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: Theme.of(ctx).colorScheme.onErrorContainer,
-                  ),
-                  onDismissed: (direction) {
-                    if (direction == DismissDirection.endToStart) {
-                      _removeItem(_groceryItems[index]);
-                    }
-                  },
-                  child: ListTile(
-                    title: Text(_groceryItems[index].name),
-                    leading: IconButton(
-                      icon: Icon(
-                        Icons.square_rounded,
-                        color: _groceryItems[index].category.categoryColor,
-                      ),
-                      onPressed: () {},
-                    ),
-                    trailing: Text(
-                      _groceryItems[index].quantity.toString(),
-                      style: Theme.of(ctx).textTheme.bodyLarge,
-                    ),
-                    contentPadding:
-                        const EdgeInsets.only(left: 0.0, right: 12.0),
-                  ),
-                );
-              },
-            )
-          : Center(
-              child: Text(
-                'Anything to buy ? add one.',
-                style: Theme.of(context).textTheme.bodyLarge,
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator.adaptive(
+                backgroundColor: Theme.of(context).indicatorColor.withAlpha(16),
+                valueColor: AlwaysStoppedAnimation(
+                  Theme.of(context).indicatorColor.withAlpha(112),
+                ),
               ),
-            ),
+            )
+          : _groceryItems.isNotEmpty
+              ? ListView.builder(
+                  itemCount: _groceryItems.length,
+                  itemBuilder: (ctx, index) {
+                    return Dismissible(
+                      key: ValueKey(_groceryItems[index].id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: Theme.of(ctx).colorScheme.onErrorContainer,
+                      ),
+                      onDismissed: (direction) {
+                        if (direction == DismissDirection.endToStart) {
+                          _removeItem(_groceryItems[index]);
+                        }
+                      },
+                      child: ListTile(
+                        title: Text(_groceryItems[index].name),
+                        leading: IconButton(
+                          icon: Icon(
+                            Icons.square_rounded,
+                            color: _groceryItems[index].category.categoryColor,
+                          ),
+                          onPressed: () {},
+                        ),
+                        trailing: Text(
+                          _groceryItems[index].quantity.toString(),
+                          style: Theme.of(ctx).textTheme.bodyLarge,
+                        ),
+                        contentPadding:
+                            const EdgeInsets.only(left: 0.0, right: 12.0),
+                      ),
+                    );
+                  },
+                )
+              : Center(
+                  child: Text(
+                    'Anything to buy ? add one.',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
     );
   }
 }

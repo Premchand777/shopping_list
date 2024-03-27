@@ -162,36 +162,57 @@ class _NewItemScreenSFWState extends State<NewItemScreenSFW> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
-                    style: const ButtonStyle(
-                      padding: MaterialStatePropertyAll(
-                        EdgeInsets.fromLTRB(32, 16, 32, 16),
+                  SizedBox(
+                    width: 100,
+                    height: 50,
+                    child: TextButton(
+                      // style: const ButtonStyle(
+                      //   padding: MaterialStatePropertyAll(
+                      //     EdgeInsets.fromLTRB(32, 16, 32, 16),
+                      //   ),
+                      // ),
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              _formKey.currentState!.reset();
+                            },
+                      child: const Text(
+                        'Reset',
                       ),
-                    ),
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            _formKey.currentState!.reset();
-                          },
-                    child: const Text(
-                      'Reset',
                     ),
                   ),
                   const SizedBox(
                     width: 8,
                   ),
-                  ElevatedButton(
-                    style: const ButtonStyle(
-                      padding: MaterialStatePropertyAll(
-                        EdgeInsets.fromLTRB(32, 16, 32, 16),
-                      ),
+                  SizedBox(
+                    width: 100,
+                    height: 50,
+                    child: ElevatedButton(
+                      // style: const ButtonStyle(
+                      //   padding: MaterialStatePropertyAll(
+                      //     EdgeInsets.fromLTRB(32, 16, 32, 16),
+                      //   ),
+                      // ),
+                      onPressed: _saveItem,
+                      child: _isLoading
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator.adaptive(
+                                backgroundColor: Theme.of(context)
+                                    .indicatorColor
+                                    .withAlpha(16),
+                                valueColor: AlwaysStoppedAnimation(
+                                  Theme.of(context)
+                                      .indicatorColor
+                                      .withAlpha(112),
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'Submit',
+                            ),
                     ),
-                    onPressed: _saveItem,
-                    child: _isLoading
-                        ? const CircularProgressIndicator.adaptive()
-                        : const Text(
-                            'Submit',
-                          ),
                   ),
                 ],
               ),
